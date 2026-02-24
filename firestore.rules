@@ -1,0 +1,106 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==================== HELPER FUNCTIONS ====================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isNotBanned() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.banned != true;
+    }
+
+    // ==================== USERS ====================
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ==================== POSTS ====================
+    match /posts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isNotBanned()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && (isOwner(resource.data.userId) || isAdmin());
+      allow delete: if isAuthenticated()
+        && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    // ==================== COMMENTS ====================
+    match /comments/{commentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isNotBanned()
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    // ==================== LIKES ====================
+    match /likes/{likeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isNotBanned()
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // ==================== FOLLOWS ====================
+    match /follows/{followId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isNotBanned()
+        && request.resource.data.followerId == request.auth.uid;
+      allow delete: if isAuthenticated()
+        && resource.data.followerId == request.auth.uid;
+    }
+
+    // ==================== NOTIFICATIONS ====================
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated()
+        && resource.data.recipientId == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated()
+        && resource.data.recipientId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // ==================== CHATS ====================
+    match /chats/{chatId} {
+      allow read: if isAuthenticated()
+        && request.auth.uid in resource.data.participants;
+      allow create: if isAuthenticated() && isNotBanned();
+      allow update: if isAuthenticated()
+        && request.auth.uid in resource.data.participants;
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if isAuthenticated() && isNotBanned()
+          && request.resource.data.senderId == request.auth.uid;
+        allow update: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
+
+    // ==================== REPORTS ====================
+    match /reports/{reportId} {
+      allow create: if isAuthenticated() && isNotBanned();
+      allow read: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
