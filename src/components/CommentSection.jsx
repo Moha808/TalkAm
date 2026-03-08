@@ -11,7 +11,7 @@ import { Avatar, Button } from "./UI";
 import { cn, formatDate } from "../utils/helpers";
 import { Trash2, Send } from "lucide-react";
 
-export default function CommentSection({ postId, postOwnerId }) {
+export default function CommentSection({ postId, postOwnerId, onCommentAdded, onCommentDeleted }) {
   const { userProfile } = useAuth();
   const { theme } = useTheme();
   const dark = theme === "dark";
@@ -38,12 +38,14 @@ export default function CommentSection({ postId, postOwnerId }) {
     await addComment(postId, userProfile.id, text.trim(), postOwnerId);
     setText("");
     await loadComments();
+    onCommentAdded?.();
     setPosting(false);
   };
 
   const handleDelete = async (commentId) => {
     await deleteComment(commentId, postId);
     setComments(comments.filter((c) => c.id !== commentId));
+    onCommentDeleted?.();
   };
 
   return (

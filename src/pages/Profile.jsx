@@ -9,6 +9,9 @@ import {
   followUser,
   unfollowUser,
   updateUserProfile,
+  getFollowers,
+  getFollowing,
+  getUserById,
 } from "../services/firebase";
 import { uploadImage, cn, formatNumber } from "../utils/helpers";
 import PostCard from "../components/PostCard";
@@ -36,6 +39,7 @@ export default function Profile() {
   const [followLoading, setFollowLoading] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [viewMode, setViewMode] = useState("grid");
+  const [showFollowList, setShowFollowList] = useState(null); // 'followers' | 'following' | null
 
   const isOwnProfile = profile?.id === userProfile?.id;
 
@@ -149,7 +153,7 @@ export default function Profile() {
                     onClick={handleFollow}
                     disabled={followLoading}
                   >
-                    {following ? "Unfollow" : "Follow"}
+                    {following ? "Following" : "Follow"}
                   </Button>
                   <Button variant="secondary" size="sm" onClick={handleMessage}>
                     <MessageCircle size={14} />
@@ -185,7 +189,10 @@ export default function Profile() {
                   Posts
                 </p>
               </div>
-              <div className="text-center">
+              <div
+                className="text-center cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => setShowFollowList("followers")}
+              >
                 <p className="text-lg font-bold">
                   {formatNumber(profile.followersCount)}
                 </p>
@@ -198,7 +205,10 @@ export default function Profile() {
                   Followers
                 </p>
               </div>
-              <div className="text-center">
+              <div
+                className="text-center cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => setShowFollowList("following")}
+              >
                 <p className="text-lg font-bold">
                   {formatNumber(profile.followingCount)}
                 </p>
@@ -293,6 +303,15 @@ export default function Profile() {
             <PostCard key={post.id} post={post} onDelete={handleDeletePost} />
           ))}
         </div>
+      )}
+
+      {/* Follow List Modal */}
+      {showFollowList && (
+        <FollowListModal
+          userId={profile.id}
+          type={showFollowList}
+          onClose={() => setShowFollowList(null)}
+        />
       )}
 
       {/* Edit Profile Modal */}
@@ -412,6 +431,90 @@ function EditProfileModal({ profile, onClose, onUpdate }) {
             {loading ? "Saving..." : "Save Changes"}
           </Button>
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+function FollowListModal({ userId, type, onClose }) {
+  const { theme } = useTheme();
+  const dark = theme === "dark";
+  const navigate = useNavigate();
+
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const ids =
+          type === "followers"
+            ? await getFollowers(userId)
+            : await getFollowing(userId);
+
+        const userProfiles = await Promise.all(
+          ids.map((id) => getUserById(id))
+        );
+        setUsers(userProfiles.filter(Boolean));
+      } catch (err) {
+        console.error("Failed to load follow list:", err);
+      }
+      setLoading(false);
+    }
+    load();
+  }, [userId, type]);
+
+  return (
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={type === "followers" ? "Followers" : "Following"}
+    >
+      <div className="space-y-3 max-h-80 overflow-y-auto">
+        {loading ? (
+          <div className="flex justify-center py-6">
+            <Spinner />
+          </div>
+        ) : users.length === 0 ? (
+          <p
+            className={cn(
+              "text-sm text-center py-4",
+              dark ? "text-dark-muted" : "text-light-muted"
+            )}
+          >
+            {type === "followers" ? "No followers yet." : "Not following anyone yet."}
+          </p>
+        ) : (
+          users.map((user) => (
+            <div
+              key={user.id}
+              className={cn(
+                "flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-colors",
+                dark ? "hover:bg-dark-hover" : "hover:bg-light-hover"
+              )}
+              onClick={() => {
+                onClose();
+                navigate(`/profile/${user.username}`);
+              }}
+            >
+              <Avatar src={user.photoURL} alt={user.displayName} size="sm" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">
+                  {user.displayName}
+                </p>
+                <p
+                  className={cn(
+                    "text-xs truncate",
+                    dark ? "text-dark-muted" : "text-light-muted"
+                  )}
+                >
+                  @{user.username}
+                </p>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </Modal>
   );

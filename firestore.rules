@@ -34,8 +34,19 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isNotBanned()
         && request.resource.data.userId == request.auth.uid;
+      // Allow any authenticated user to update likesCount/commentsCount
+      // (needed for liking/commenting on other users' posts).
+      // The owner and admins can update any fields.
       allow update: if isAuthenticated()
-        && (isOwner(resource.data.userId) || isAdmin());
+        && (
+          isOwner(resource.data.userId)
+          || isAdmin()
+          || (
+            isNotBanned()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['likesCount', 'commentsCount'])
+          )
+        );
       allow delete: if isAuthenticated()
         && (isOwner(resource.data.userId) || isAdmin());
     }

@@ -32,6 +32,7 @@ export default function PostCard({ post, onDelete }) {
   const [author, setAuthor] = useState(null);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
+  const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
   const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -207,6 +208,11 @@ export default function PostCard({ post, onDelete }) {
               fill={liked ? "currentColor" : "none"}
               className={liked ? "animate-scale-in" : ""}
             />
+            {likesCount > 0 && (
+              <span className="text-sm font-semibold">
+                {formatNumber(likesCount)}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setShowComments(!showComments)}
@@ -218,6 +224,11 @@ export default function PostCard({ post, onDelete }) {
             )}
           >
             <MessageSquare size={22} />
+            {commentsCount > 0 && (
+              <span className="text-sm font-semibold">
+                {formatNumber(commentsCount)}
+              </span>
+            )}
           </button>
           <button
             onClick={handleShare}
@@ -232,13 +243,7 @@ export default function PostCard({ post, onDelete }) {
           </button>
         </div>
 
-        {likesCount > 0 && (
-          <p className="text-sm font-semibold">
-            {formatNumber(likesCount)} {likesCount === 1 ? "like" : "likes"}
-          </p>
-        )}
-
-        {post.commentsCount > 0 && !showComments && (
+        {commentsCount > 0 && !showComments && (
           <button
             onClick={() => setShowComments(true)}
             className={cn(
@@ -246,14 +251,19 @@ export default function PostCard({ post, onDelete }) {
               dark ? "text-dark-muted" : "text-light-muted",
             )}
           >
-            View all {post.commentsCount} comments
+            View all {formatNumber(commentsCount)} comments
           </button>
         )}
       </div>
 
       {/* Comments */}
       {showComments && (
-        <CommentSection postId={post.id} postOwnerId={post.userId} />
+        <CommentSection
+          postId={post.id}
+          postOwnerId={post.userId}
+          onCommentAdded={() => setCommentsCount((c) => c + 1)}
+          onCommentDeleted={() => setCommentsCount((c) => Math.max(0, c - 1))}
+        />
       )}
 
       {/* Report Modal */}
