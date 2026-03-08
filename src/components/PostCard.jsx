@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useToast } from "../context/ToastContext";
 import {
   likePost,
   unlikePost,
@@ -18,8 +19,11 @@ import {
   deletePost,
   getUserById,
   reportContent,
+  bookmarkPost,
+  unbookmarkPost,
+  hasBookmarkedPost,
 } from "../services/firebase";
-import { Avatar, Modal, Button } from "./UI";
+import { Avatar, Modal, Button, ImageLightbox, VerifiedBadge } from "./UI";
 import { cn, formatDate, formatNumber } from "../utils/helpers";
 import CommentSection from "./CommentSection";
 
@@ -27,6 +31,7 @@ export default function PostCard({ post, onDelete }) {
   const { userProfile } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
+  const toast = useToast();
   const dark = theme === "dark";
 
   const [author, setAuthor] = useState(null);
@@ -37,11 +42,14 @@ export default function PostCard({ post, onDelete }) {
   const [showMenu, setShowMenu] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
+  const [bookmarked, setBookmarked] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(null);
 
   useEffect(() => {
     getUserById(post.userId).then(setAuthor);
     if (userProfile?.id) {
       hasUserLikedPost(post.id, userProfile.id).then(setLiked);
+      hasBookmarkedPost(userProfile.id, post.id).then(setBookmarked);
     }
   }, [post.userId, post.id, userProfile?.id]);
 
@@ -62,6 +70,7 @@ export default function PostCard({ post, onDelete }) {
     if (confirm("Delete this post?")) {
       await deletePost(post.id, userProfile.id);
       onDelete?.(post.id);
+      toast.success("Post deleted");
     }
   };
 
@@ -71,7 +80,19 @@ export default function PostCard({ post, onDelete }) {
       navigator.share({ title: "Check out this post", url });
     } else {
       navigator.clipboard.writeText(url);
-      alert("Link copied!");
+      toast.success("Link copied to clipboard!");
+    }
+  };
+
+  const handleBookmark = async () => {
+    if (bookmarked) {
+      setBookmarked(false);
+      await unbookmarkPost(userProfile.id, post.id);
+      toast.info("Removed from saved");
+    } else {
+      setBookmarked(true);
+      await bookmarkPost(userProfile.id, post.id);
+      toast.success("Post saved!");
     }
   };
 
@@ -85,7 +106,30 @@ export default function PostCard({ post, onDelete }) {
     });
     setShowReport(false);
     setReportReason("");
-    alert("Report submitted. Thank you.");
+    toast.success("Report submitted. Thank you.");
+  };
+
+  // Parse hashtags in text
+  const renderText = (text) => {
+    if (!text) return null;
+    const parts = text.split(/(#\w+)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("#")) {
+        return (
+          <span
+            key={i}
+            className="text-primary font-medium cursor-pointer hover:underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/explore?tag=${part.slice(1)}`);
+            }}
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
   };
 
   return (
@@ -94,7 +138,7 @@ export default function PostCard({ post, onDelete }) {
         "rounded-2xl overflow-hidden animate-fade-in",
         dark
           ? "bg-dark-card border border-dark-border"
-          : "bg-light-card border border-light-border shadow-sm",
+          : "bg-light-card border border-light-border shadow-sm"
       )}
     >
       {/* Header */}
@@ -105,11 +149,14 @@ export default function PostCard({ post, onDelete }) {
         >
           <Avatar src={author?.photoURL} alt={author?.displayName} size="md" />
           <div>
-            <p className="text-sm font-semibold">{author?.displayName}</p>
+            <p className="text-sm font-semibold flex items-center gap-0.5">
+              {author?.displayName}
+              {author?.verified && <VerifiedBadge size={14} />}
+            </p>
             <p
               className={cn(
                 "text-xs",
-                dark ? "text-dark-muted" : "text-light-muted",
+                dark ? "text-dark-muted" : "text-light-muted"
               )}
             >
               @{author?.username} · {formatDate(post.createdAt)}
@@ -122,7 +169,7 @@ export default function PostCard({ post, onDelete }) {
             onClick={() => setShowMenu(!showMenu)}
             className={cn(
               "p-1.5 rounded-lg transition-colors cursor-pointer",
-              dark ? "hover:bg-dark-hover" : "hover:bg-light-hover",
+              dark ? "hover:bg-dark-hover" : "hover:bg-light-hover"
             )}
           >
             <MoreHorizontal size={18} />
@@ -134,7 +181,7 @@ export default function PostCard({ post, onDelete }) {
                 "absolute right-0 top-full mt-1 w-48 rounded-xl p-1 z-20 animate-scale-in",
                 dark
                   ? "bg-dark-card border border-dark-border"
-                  : "bg-light-card border border-light-border shadow-lg",
+                  : "bg-light-card border border-light-border shadow-lg"
               )}
             >
               {post.userId === userProfile?.id ? (
@@ -156,7 +203,7 @@ export default function PostCard({ post, onDelete }) {
                   }}
                   className={cn(
                     "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg cursor-pointer",
-                    dark ? "hover:bg-dark-hover" : "hover:bg-light-hover",
+                    dark ? "hover:bg-dark-hover" : "hover:bg-light-hover"
                   )}
                 >
                   <Flag size={16} />
@@ -172,18 +219,21 @@ export default function PostCard({ post, onDelete }) {
       {post.text && (
         <div className="px-4 pb-3">
           <p className="text-sm leading-relaxed whitespace-pre-wrap">
-            {post.text}
+            {renderText(post.text)}
           </p>
         </div>
       )}
 
       {/* Image */}
       {post.imageURL && (
-        <div className="w-full">
+        <div
+          className="w-full cursor-pointer"
+          onClick={() => setLightboxImage(post.imageURL)}
+        >
           <img
             src={post.imageURL}
             alt="Post content"
-            className="w-full object-cover max-h-[600px]"
+            className="w-full object-cover max-h-[600px] hover:opacity-95 transition-opacity"
             loading="lazy"
           />
         </div>
@@ -191,55 +241,74 @@ export default function PostCard({ post, onDelete }) {
 
       {/* Actions */}
       <div className="p-4 space-y-3">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleLike}
+              className={cn(
+                "flex items-center gap-1.5 transition-all duration-200 cursor-pointer",
+                liked
+                  ? "text-danger"
+                  : dark
+                    ? "text-dark-muted hover:text-danger"
+                    : "text-light-muted hover:text-danger"
+              )}
+            >
+              <Heart
+                size={22}
+                fill={liked ? "currentColor" : "none"}
+                className={liked ? "animate-scale-in" : ""}
+              />
+              {likesCount > 0 && (
+                <span className="text-sm font-semibold">
+                  {formatNumber(likesCount)}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setShowComments(!showComments)}
+              className={cn(
+                "flex items-center gap-1.5 transition-colors cursor-pointer",
+                dark
+                  ? "text-dark-muted hover:text-primary"
+                  : "text-light-muted hover:text-primary"
+              )}
+            >
+              <MessageSquare size={22} />
+              {commentsCount > 0 && (
+                <span className="text-sm font-semibold">
+                  {formatNumber(commentsCount)}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={handleShare}
+              className={cn(
+                "flex items-center gap-1.5 transition-colors cursor-pointer",
+                dark
+                  ? "text-dark-muted hover:text-dark-text"
+                  : "text-light-muted hover:text-light-text"
+              )}
+            >
+              <Share2 size={22} />
+            </button>
+          </div>
           <button
-            onClick={handleLike}
+            onClick={handleBookmark}
             className={cn(
-              "flex items-center gap-1.5 transition-all duration-200 cursor-pointer",
-              liked
-                ? "text-danger"
+              "transition-all duration-200 cursor-pointer",
+              bookmarked
+                ? "text-warning"
                 : dark
-                  ? "text-dark-muted hover:text-danger"
-                  : "text-light-muted hover:text-danger",
+                  ? "text-dark-muted hover:text-warning"
+                  : "text-light-muted hover:text-warning"
             )}
           >
-            <Heart
+            <Bookmark
               size={22}
-              fill={liked ? "currentColor" : "none"}
-              className={liked ? "animate-scale-in" : ""}
+              fill={bookmarked ? "currentColor" : "none"}
+              className={bookmarked ? "animate-scale-in" : ""}
             />
-            {likesCount > 0 && (
-              <span className="text-sm font-semibold">
-                {formatNumber(likesCount)}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setShowComments(!showComments)}
-            className={cn(
-              "flex items-center gap-1.5 transition-colors cursor-pointer",
-              dark
-                ? "text-dark-muted hover:text-primary"
-                : "text-light-muted hover:text-primary",
-            )}
-          >
-            <MessageSquare size={22} />
-            {commentsCount > 0 && (
-              <span className="text-sm font-semibold">
-                {formatNumber(commentsCount)}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={handleShare}
-            className={cn(
-              "flex items-center gap-1.5 transition-colors cursor-pointer",
-              dark
-                ? "text-dark-muted hover:text-dark-text"
-                : "text-light-muted hover:text-light-text",
-            )}
-          >
-            <Share2 size={22} />
           </button>
         </div>
 
@@ -248,7 +317,7 @@ export default function PostCard({ post, onDelete }) {
             onClick={() => setShowComments(true)}
             className={cn(
               "text-sm cursor-pointer",
-              dark ? "text-dark-muted" : "text-light-muted",
+              dark ? "text-dark-muted" : "text-light-muted"
             )}
           >
             View all {formatNumber(commentsCount)} comments
@@ -281,7 +350,7 @@ export default function PostCard({ post, onDelete }) {
               "w-full px-4 py-3 rounded-xl text-sm resize-none h-24 outline-none",
               dark
                 ? "bg-dark-bg border border-dark-border text-dark-text"
-                : "bg-light-bg border border-light-border text-light-text",
+                : "bg-light-bg border border-light-border text-light-text"
             )}
           />
           <div className="flex justify-end gap-2">
@@ -298,6 +367,15 @@ export default function PostCard({ post, onDelete }) {
           </div>
         </div>
       </Modal>
+
+      {/* Image Lightbox */}
+      {lightboxImage && (
+        <ImageLightbox
+          src={lightboxImage}
+          alt="Post image"
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
     </article>
   );
 }

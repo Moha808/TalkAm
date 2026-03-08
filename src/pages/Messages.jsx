@@ -14,7 +14,7 @@ import {
   markChatRead,
 } from "../services/firebase";
 import { uploadImage, cn, formatDate } from "../utils/helpers";
-import { Avatar, Spinner, EmptyState, Button } from "../components/UI";
+import { Avatar, Spinner, EmptyState, Button, ChatSkeleton } from "../components/UI";
 import {
   Send,
   Image,
@@ -71,8 +71,11 @@ export default function Messages() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Spinner />
+      <div className="w-full md:w-80 flex-shrink-0 flex flex-col h-screen border-r border-dark-border/20">
+        <div className="p-4 border-b border-dark-border/20">
+          <h2 className="text-lg font-bold">Messages</h2>
+        </div>
+        <ChatSkeleton />
       </div>
     );
   }

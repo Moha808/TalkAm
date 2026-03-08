@@ -264,7 +264,7 @@ export default function Layout({ children }) {
             className="text-xl font-extrabold gradient-text cursor-pointer"
             onClick={() => navigate("/")}
           >
-            S
+            T
           </h1>
         </div>
 
@@ -350,7 +350,7 @@ export default function Layout({ children }) {
           className="text-xl font-extrabold gradient-text cursor-pointer"
           onClick={() => navigate("/")}
         >
-          SocialCloud
+          TalkAm
         </h1>
         <div className="flex items-center gap-1">
           <div className="relative" ref={notifRef}>

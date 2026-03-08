@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { searchUsers, getSuggestedUsers } from "../services/firebase";
 import { subscribeToPosts } from "../services/firebase";
 import PostCard from "../components/PostCard";
-import { Avatar, Spinner, EmptyState, Input } from "../components/UI";
+import { Avatar, Spinner, EmptyState, Input, PostSkeleton } from "../components/UI";
 import { cn } from "../utils/helpers";
 import { Search, TrendingUp } from "lucide-react";
 
@@ -126,8 +126,10 @@ export default function Explore() {
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
+            <div className="space-y-6">
+              <PostSkeleton />
+              <PostSkeleton />
+              <PostSkeleton />
             </div>
           ) : posts.length === 0 ? (
             <EmptyState

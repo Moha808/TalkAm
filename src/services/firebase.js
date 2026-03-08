@@ -497,3 +497,89 @@ export async function getAllUsers() {
   const snapshot = await getDocs(collection(db, "users"));
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
+
+// ==================== BOOKMARK SERVICES ====================
+
+export async function bookmarkPost(userId, postId) {
+  const bookmarkId = `${userId}_${postId}`;
+  await setDoc(doc(db, "bookmarks", bookmarkId), {
+    userId,
+    postId,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function unbookmarkPost(userId, postId) {
+  const bookmarkId = `${userId}_${postId}`;
+  await deleteDoc(doc(db, "bookmarks", bookmarkId));
+}
+
+export async function hasBookmarkedPost(userId, postId) {
+  const bookmarkId = `${userId}_${postId}`;
+  const docSnap = await getDoc(doc(db, "bookmarks", bookmarkId));
+  return docSnap.exists();
+}
+
+export async function getUserBookmarks(userId) {
+  const q = query(
+    collection(db, "bookmarks"),
+    where("userId", "==", userId),
+    orderBy("createdAt", "desc")
+  );
+  const snapshot = await getDocs(q);
+  const bookmarks = snapshot.docs.map((d) => d.data().postId);
+  // Fetch the actual posts
+  const posts = [];
+  for (const postId of bookmarks) {
+    const postDoc = await getDoc(doc(db, "posts", postId));
+    if (postDoc.exists()) {
+      posts.push({ id: postDoc.id, ...postDoc.data() });
+    }
+  }
+  return posts;
+}
+
+// ==================== STORY SERVICES ====================
+
+export async function createStory(storyData) {
+  let imageURL = null;
+  if (storyData.imageFile) {
+    imageURL = await uploadImage(storyData.imageFile);
+  }
+
+  const storyRef = await addDoc(collection(db, "stories"), {
+    userId: storyData.userId,
+    imageURL,
+    text: storyData.text || "",
+    backgroundColor: storyData.backgroundColor || "#0ea5e9",
+    viewedBy: [],
+    createdAt: serverTimestamp(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+  });
+
+  return { id: storyRef.id };
+}
+
+export async function getActiveStories() {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const q = query(
+    collection(db, "stories"),
+    where("expiresAt", ">", cutoff),
+    orderBy("expiresAt", "desc")
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function markStoryViewed(storyId, userId) {
+  const storyRef = doc(db, "stories", storyId);
+  const storyDoc = await getDoc(storyRef);
+  if (storyDoc.exists()) {
+    const viewedBy = storyDoc.data().viewedBy || [];
+    if (!viewedBy.includes(userId)) {
+      await updateDoc(storyRef, {
+        viewedBy: [...viewedBy, userId],
+      });
+    }
+  }
+}

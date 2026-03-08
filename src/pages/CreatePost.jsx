@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useToast } from "../context/ToastContext";
 import { createPost } from "../services/firebase";
 import { Avatar, Button } from "../components/UI";
 import { cn } from "../utils/helpers";
@@ -11,6 +12,7 @@ export default function CreatePost() {
   const { userProfile } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
+  const toast = useToast();
   const dark = theme === "dark";
   const fileInputRef = useRef(null);
 
@@ -52,6 +54,7 @@ export default function CreatePost() {
         text: text.trim(),
         imageFile,
       });
+      toast.success("Post created successfully!");
       navigate("/");
     } catch (err) {
       setError(err.message);

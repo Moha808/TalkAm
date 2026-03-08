@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useToast } from "../context/ToastContext";
 import {
   addComment,
   getComments,
@@ -14,6 +15,7 @@ import { Trash2, Send } from "lucide-react";
 export default function CommentSection({ postId, postOwnerId, onCommentAdded, onCommentDeleted }) {
   const { userProfile } = useAuth();
   const { theme } = useTheme();
+  const toast = useToast();
   const dark = theme === "dark";
 
   const [comments, setComments] = useState([]);
@@ -40,12 +42,14 @@ export default function CommentSection({ postId, postOwnerId, onCommentAdded, on
     await loadComments();
     onCommentAdded?.();
     setPosting(false);
+    toast.success("Comment posted");
   };
 
   const handleDelete = async (commentId) => {
     await deleteComment(commentId, postId);
     setComments(comments.filter((c) => c.id !== commentId));
     onCommentDeleted?.();
+    toast.info("Comment deleted");
   };
 
   return (

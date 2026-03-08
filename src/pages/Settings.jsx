@@ -114,7 +114,7 @@ export default function Settings() {
           dark ? "text-dark-muted" : "text-light-muted",
         )}
       >
-        TalkAm v1.0.0 — Bult by Mohadapwa Igal
+        TalkAm v1.0.0 — Built by Mohadapwa Igal
       </p>
     </div>
   );

@@ -4,7 +4,8 @@ import { useTheme } from "../context/ThemeContext";
 import { subscribeToPosts, getSuggestedUsers } from "../services/firebase";
 import PostCard from "../components/PostCard";
 import SuggestedUsers from "../components/SuggestedUsers";
-import { Spinner, EmptyState } from "../components/UI";
+import Stories from "../components/Stories";
+import { Spinner, EmptyState, PostSkeleton } from "../components/UI";
 import { cn } from "../utils/helpers";
 
 export default function Home() {
@@ -79,8 +80,15 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Spinner />
+      <div className="max-w-7xl mx-auto flex gap-8 p-4 md:p-6">
+        <div className="flex-1 max-w-xl mx-auto w-full space-y-6">
+          <PostSkeleton />
+          <PostSkeleton />
+          <PostSkeleton />
+        </div>
+        <aside className="hidden xl:block w-72 flex-shrink-0">
+          <div className="skeleton h-64 w-full rounded-2xl" />
+        </aside>
       </div>
     );
   }
@@ -114,6 +122,8 @@ export default function Home() {
             Here's what's happening in your feed.
           </p>
         </div>
+
+        <Stories />
 
         {posts.length === 0 ? (
           <EmptyState
